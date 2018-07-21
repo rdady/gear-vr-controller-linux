@@ -8,8 +8,10 @@ How To use?
 1. Change the bluetooth MAC address in the .py file to yours!!!
 2. Pair Controller with (Linux) PC
 3. Connect Controller
-4. Run my program
-5. Enjoy
+4. As root load uinput: # modprobe uinput
+5. As root enable user access to uinput: # chmod 666 /dev/uinput
+6. Run my program
+7. Enjoy
 
 What's the usecase?
 
