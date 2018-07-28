@@ -18,3 +18,8 @@ What's the usecase?
 I am sitting at my desk while holding my litte son while he sleeps, but I sill need do nerdy stuff like browsing the web. An air mouse is not that convenient, but this controller ... is a perfect match. 
 It could be considered as the one hand equivalent of the Steam Controller.
 BTW I hope sc-controller will intergate this controller in his project as well.
+
+ISSUES
+
+Can't switch to VR mode in a stable way.
+Consider this project at this point as a Proof Of Concept.
