@@ -15,6 +15,7 @@ https://github.com/jsyang/gearvr-controller-webbluetooth
 
 To avoid steps 4 and 5:
 as root do this once
+
 echo 'KERNEL=="uinput", MODE="0660", GROUP="drobert", OPTIONS+="static_node=uinput"' > /etc/udev/rules.d/99-uinput.rules
 
 
