@@ -4,7 +4,7 @@ This little mapper creates a mouse + web navigator device from Samsung Gear VR C
 My work was inspired by this project
 https://github.com/jsyang/gearvr-controller-webbluetooth
 
-How To use?
+# How To use?
 1. Change the bluetooth MAC address in the .py file to yours!!!
 2. Pair Controller with (Linux) PC
 3. Connect Controller
@@ -13,13 +13,16 @@ How To use?
 6. Run my program
 7. Enjoy
 
-What's the usecase?
+To avoid steps 4 and 5:
+as root do this once
+echo 'KERNEL=="uinput", MODE="0660", GROUP="drobert", OPTIONS+="static_node=uinput"' > /etc/udev/rules.d/99-uinput.rules
+
+
+# What's the usecase? a.k.a. Why?
 
 I am sitting at my desk while holding my litte son while he sleeps, but I sill need do nerdy stuff like browsing the web. An air mouse is not that convenient, but this controller ... is a perfect match. 
 It could be considered as the one hand equivalent of the Steam Controller.
 BTW I hope sc-controller will intergate this controller in his project as well.
 
-ISSUES
-
-Can't switch to VR mode in a stable way.
+# ISSUES
 Consider this project at this point as a Proof Of Concept.
