@@ -51,7 +51,7 @@ class AnyDevice(gatt.Device):
         # good  0 -> 8761(bad) -(?)> 1678 (ok)
 
         self.write(bytearray(b'\x01\x00'), 3)
-        self.write(bytearray(b'\x05\x00'), 1)
+        #self.write(bytearray(b'\x05\x00'), 1)
         self.write(bytearray(b'\x06\x00'), 1)
         self.write(bytearray(b'\x07\x00'), 1)
         self.write(bytearray(b'\x08\x00'), 3)
@@ -91,9 +91,9 @@ class AnyDevice(gatt.Device):
                     self.__lastupdated = now
                     if deltatime > 0.23:
                         #print("VR mode needs activation ", deltatime)
-                        self.write(bytearray(b'\x05\x00'), 1)
+                        #self.write(bytearray(b'\x05\x00'), 1)
                         self.write(bytearray(b'\x06\x00'), 1)
-                        self.write(bytearray(b'\x08\x00'), 1)
+                        self.write(bytearray(b'\x08\x00'), 3)
                         self.write(bytearray(b'\x07\x00'), 1)
                     else:
                         print("VR mode enabled ", deltatime)
@@ -102,10 +102,11 @@ class AnyDevice(gatt.Device):
             self.keepalive()
             int_values = [x for x in value]
             if (len(int_values) < 60):
-                print("Value vector too short: ", len(int_values), " ", value)
+                self.__VR = True
+                #print("Value vector too short: ", len(int_values), " ", value, " VR mode is activated")
+                print("VR mode is activated")
+                self.write(bytearray(b'\x01\x00'), 3)
                 self.__sensor_characteristic.enable_notifications()
-                self.write(bytearray(b'\x04\x00'), 3)
-                print("???")
                 return
 
             axisX = (((int_values[54] & 0xF) << 6) + ((int_values[55] & 0xFC) >> 2)) & 0x3FF
