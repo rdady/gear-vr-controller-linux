@@ -1,5 +1,8 @@
 #!/usr/bin/python3
 
+# pip3 install python-uinput pygatt gatt more-itertools --user
+# $ modprobe uinput
+
 import gatt
 import uinput
 import signal
@@ -8,8 +11,13 @@ import time
 import numpy as np
 import sys
 import os
+import cmath
+import more_itertools as mit
 
 manager = gatt.DeviceManager(adapter_name='hci0')
+
+def ror(l, n):
+    return l[-n:] + l[:-n]
 
 class AnyDevice(gatt.Device):
     def connect_succeeded(self):
@@ -47,11 +55,7 @@ class AnyDevice(gatt.Device):
         self.__setup_characteristic = controller_setup_data_characteristic
         self.__sensor_characteristic = controller_data_characteristic
 
-        #bad 8678 8768 8761
-        # good  0 -> 8761(bad) -(?)> 1678 (ok)
-
         self.write(bytearray(b'\x01\x00'), 3)
-        #self.write(bytearray(b'\x05\x00'), 1)
         self.write(bytearray(b'\x06\x00'), 1)
         self.write(bytearray(b'\x07\x00'), 1)
         self.write(bytearray(b'\x08\x00'), 3)
@@ -67,6 +71,14 @@ class AnyDevice(gatt.Device):
         self.__time = round(time.time()) + 10
         self.__lastupdated = 0
         self.__updatecounts = 0
+        self.__wheelPos = -1
+        self.__useWheel = False
+        self.__c_numberOfWheelPositions = 64
+        [self.__l_top, self.__l_right, self.__l_bottom, self.__l_left] = [list(x) for x in mit.divide(4, ror([i for i in range(0, self.__c_numberOfWheelPositions)], self.__c_numberOfWheelPositions // 8))]
+        self.__wheelMultiplier = 2
+        self.__useTouch = False
+        self.__dirUp = False
+        self.__dirDown = False
         self.__VR = False
 
         controller_data_characteristic.enable_notifications()
@@ -90,8 +102,6 @@ class AnyDevice(gatt.Device):
                     deltatime = now - self.__lastupdated
                     self.__lastupdated = now
                     if deltatime > 0.23:
-                        #print("VR mode needs activation ", deltatime)
-                        #self.write(bytearray(b'\x05\x00'), 1)
                         self.write(bytearray(b'\x06\x00'), 1)
                         self.write(bytearray(b'\x08\x00'), 3)
                         self.write(bytearray(b'\x07\x00'), 1)
@@ -103,14 +113,13 @@ class AnyDevice(gatt.Device):
             int_values = [x for x in value]
             if (len(int_values) < 60):
                 self.__VR = True
-                #print("Value vector too short: ", len(int_values), " ", value, " VR mode is activated")
                 print("VR mode is activated")
                 self.write(bytearray(b'\x01\x00'), 3)
                 self.__sensor_characteristic.enable_notifications()
                 return
 
-            axisX = (((int_values[54] & 0xF) << 6) + ((int_values[55] & 0xFC) >> 2)) & 0x3FF
-            axisY = (((int_values[55] & 0x3) << 8) + ((int_values[56] & 0xFF) >> 0)) & 0x3FF
+            axisX   = (((int_values[54] & 0xF)  << 6) + ((int_values[55] & 0xFC) >> 2)) & 0x3FF
+            axisY   = (((int_values[55] & 0x3)  << 8) + ((int_values[56] & 0xFF) >> 0)) & 0x3FF
             accelX  = np.uint16((int_values[4]  << 8) + int_values[5])  * 10000.0 * 9.80665 / 2048.0
             accelY  = np.uint16((int_values[6]  << 8) + int_values[7])  * 10000.0 * 9.80665 / 2048.0
             accelZ  = np.uint16((int_values[8]  << 8) + int_values[9])  * 10000.0 * 9.80665 / 2048.0
@@ -132,35 +141,70 @@ class AnyDevice(gatt.Device):
             idelta = 30
             odelta = 25
 
-            if (triggerButton == True and self.__trig == True):
-                self.__device.emit(uinput.BTN_LEFT, 1)
+            if (touchpadButton == True and self.__trig == True):
+                self.__useWheel = not self.__useWheel
+                #self.__useTouch = not self.__useTouch
                 self.__trig = False
-            elif (triggerButton == False and self.__trig == False):
-                self.__device.emit(uinput.BTN_LEFT, 0)
+            elif (touchpadButton == False and self.__trig == False):
+                self.__trig = True
 
             outerCircle = True if (axisX - self.__r)**2 + (axisY - self.__r)**2 > (self.__r - odelta)**2  else False
-            T = True if (outerCircle and axisY != 0 and axisY < odelta) else False              # Top
-            B = True if (outerCircle and axisY != 0 and axisY > self.__max - odelta) else False # Bottom
-            L = True if (outerCircle and axisX != 0 and axisX < odelta) else False              # Left
-            R = True if (outerCircle and axisY != 0 and axisX > self.__max - odelta) else False # Right
+            wheelPos = self.wheelPos(axisX, axisY)
+            T = True if (outerCircle and int(wheelPos) in self.__l_top)    else False # Top
+            R = True if (outerCircle and int(wheelPos) in self.__l_right)  else False # Right
+            B = True if (outerCircle and int(wheelPos) in self.__l_bottom) else False # Bottom
+            L = True if (outerCircle and int(wheelPos) in self.__l_left)   else False # Left
 
-            if (touchpadButton == True):
-                if (T and self.__tchbtn == True):
-                    for i in range(4):
-                        self.__device.emit(uinput.KEY_UP, 1, syn = True)
+            delta_X = delta_Y = 0
+            delta_X = axisX - self.__axisX
+            delta_Y = axisY - self.__axisY
+            delta_X = round(delta_X * 1.2)
+            delta_Y = round(delta_Y * 1.2)
+
+            if (self.__useWheel):
+                if (abs(self.__wheelPos - wheelPos) > 1 and abs((self.__wheelPos + 1) % self.__c_numberOfWheelPositions - (wheelPos + 1) % self.__c_numberOfWheelPositions) > 1):
+                    self.__wheelPos = wheelPos
+                    return
+                if ((self.__wheelPos - wheelPos) == 1 or ((self.__wheelPos + 1) % self.__c_numberOfWheelPositions - (wheelPos + 1) % self.__c_numberOfWheelPositions) == 1):
+                    self.__wheelPos = wheelPos
+                    for i in range(self.__wheelMultiplier):
+                        self.__device.emit(uinput.KEY_UP, 1)
                         self.__device.emit(uinput.KEY_UP, 0)
-                    self.__tchbtn = False
                     return
-                elif (B and self.__tchbtn == True):
-                    for i in range(4):
-                        self.__device.emit(uinput.KEY_DOWN, 1, syn = True)
+                if ((wheelPos - self.__wheelPos) == 1 or ((wheelPos + 1) % self.__c_numberOfWheelPositions - (self.__wheelPos + 1) % self.__c_numberOfWheelPositions) == 1):
+                    self.__wheelPos = wheelPos
+                    for i in range(self.__wheelMultiplier):
+                        self.__device.emit(uinput.KEY_DOWN, 1)
                         self.__device.emit(uinput.KEY_DOWN, 0)
-                    self.__tchbtn = False
                     return
-                elif (outerCircle == False and self.__tchbtn == True):
-                    self.__device.emit(uinput.BTN_LEFT, 1)
-                    self.__tchbtn = False
-                    # return is not feasable here
+                return
+
+            if (self.__useTouch):
+                if (abs(delta_X) < 50):
+                    if (axisX == 0 and axisY == 0):
+                        self.__dirUp = False
+                        self.__dirDown = False
+                        self.__axisX = axisX
+                        self.__axisY = axisY
+                        return
+                    elif (self.__dirUp == False and self.__dirDown == False):
+                        if (delta_X > 0):
+                            self.__dirUp = True
+                        else:
+                            self.__dirDown = True
+                    if (self.__dirUp == True and abs(delta_X) > 1):
+                        self.__device.emit(uinput.KEY_UP, 1)
+                        self.__device.emit(uinput.KEY_UP, 0)
+                    elif (self.__dirDown == True and abs(delta_X) > 1):
+                        self.__device.emit(uinput.KEY_DOWN, 1)
+                        self.__device.emit(uinput.KEY_DOWN, 0)
+                self.__axisX = axisX
+                self.__axisY = axisY
+                print(delta_X)
+                return
+
+            if (triggerButton == True):
+                self.__device.emit(uinput.BTN_LEFT, 1)
             else:
                 self.__device.emit(uinput.BTN_LEFT, 0)
 
@@ -182,8 +226,8 @@ class AnyDevice(gatt.Device):
 
             if (volumeDownButton == True and self.__volbtn == True):
                 self.__device.emit(uinput.KEY_LEFTCTRL, 1, syn = False)
-                self.__device.emit(uinput.KEY_KPMINUS, 1, syn = True)
-                self.__device.emit(uinput.KEY_KPMINUS, 0, syn = False)
+                self.__device.emit(uinput.KEY_KP0, 1, syn = True)
+                self.__device.emit(uinput.KEY_KP0, 0, syn = False)
                 self.__device.emit(uinput.KEY_LEFTCTRL, 0, syn = True)
                 self.__volbtn = False
                 return
@@ -208,12 +252,6 @@ class AnyDevice(gatt.Device):
                 self.__device.emit(uinput.KEY_DOWN, 0)
                 self.__device.emit(uinput.KEY_LEFT, 0)
                 self.__device.emit(uinput.KEY_RIGHT, 0)
-
-            delta_X = delta_Y = 0
-            delta_X = axisX - self.__axisX
-            delta_Y = axisY - self.__axisY
-            delta_X = round(delta_X * 1.2)
-            delta_Y = round(delta_Y * 1.2)
 
             # No standalone button handling behind this point
 
@@ -250,8 +288,18 @@ class AnyDevice(gatt.Device):
                 self.__device.emit(uinput.REL_Y, -incy, syn = True)
                 dy += incy
 
+    # circle segments from 0 .. self.__c_numberOfWheelPositions clockwise
+    def wheelPos(self, x, y):
+        pos = 0
+        if (x == 0 and y == 0):
+            pos = -1
+        r, phi = cmath.polar(complex(x-157, y-157))
+        pos = math.floor(math.degrees(phi) / 360 * self.__c_numberOfWheelPositions)
+        return pos
+
 def defint():
     global device
+    device.write(bytearray(b'\x00\x00'), 3)
     ##device.disconnect()
     sys.exit(0)
 
