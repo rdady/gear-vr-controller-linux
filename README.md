@@ -28,3 +28,16 @@ BTW I hope sc-controller will intergate this controller in his project as well.
 
 # ISSUES
 Consider this project at this point as a Proof Of Concept.
+
+# Plans for the future
+I had the idea to implement the esp-GearVRController-Mouse-adapter, but I am stuck with it.
+ESP32 https://www.espressif.com/en/products/hardware/esp32/overview was my best choice. Really good piece of hardware, but handling the 128bit uuid notification event stucks by waiting for a semaphore in the readValue() ...
+
+NodeJS: as the original reverse engineering was done in Javascript and nodejs has mouse emulation libraries, this could work.
+
+Android-GearVRController-Mouse-adapter:
+https://github.com/rdady/BLE-HID-Peripheral-for-Android
+An Android phone could pretend to be a BLE mouse / joystick.
+Advantage is, no special hardware is needed and no special knowledge is needed for its programming, but installing an app.
+I am working on this one, wait for it :)
+
