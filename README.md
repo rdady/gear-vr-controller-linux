@@ -5,13 +5,14 @@ My work was inspired by this project
 https://github.com/jsyang/gearvr-controller-webbluetooth
 
 # How To use?
-1. Change the bluetooth MAC address in the .py file to yours!!!
-2. Pair Controller with (Linux) PC
-3. Connect Controller
-4. As root load uinput: # modprobe uinput
-5. As root enable user access to uinput: # chmod 666 /dev/uinput
-6. Run my program
-7. Enjoy
+1. $ pip3 install python-uinput pygatt gatt more-itertools --user
+2. Change the bluetooth MAC address in the .py file to yours!!!
+3. Pair Controller with (Linux) PC
+4. Connect Controller
+5. As root load uinput: # modprobe uinput
+6. As root enable user access to uinput: # chmod 666 /dev/uinput
+7. Run my program
+8. Enjoy
 
 To avoid steps 4 and 5:
 
